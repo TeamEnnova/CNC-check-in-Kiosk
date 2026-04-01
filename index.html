@@ -6,6 +6,7 @@
     <title>Cash N Carry - Check-in Kiosk</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -401,18 +402,257 @@
             if (!valid) return;
 
             const payload = {
-                firstName: document.getElementById('custName').value,
-                lastName: document.getElementById('custLastName').value,
+                firstName: document.getElementById('custName').value.trim(),
+                lastName: document.getElementById('custLastName').value.trim(),
                 phone: document.getElementById('custPhone').value.trim(),
-                email: document.getElementById('custEmail').value,
-                signature: signaturePad.toDataURL(),
-                photo: canvasSnap.toDataURL('image/jpeg')
+                email: document.getElementById('custEmail').value.trim(),
+                signature: signaturePad.toDataURL('image/png'),
+                photo: canvasSnap.toDataURL('image/jpeg', 0.85)
             };
 
-            console.log('Check-in payload:', payload);
-            alert("✓ Check-in successful! Welcome to Cash N Carry.");
-            setTimeout(() => location.reload(), 1000);
+            generateCheckinPDF(payload);
         }
+    }
+
+    // ── PDF Generation ──
+    function loadImageAsBase64(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = img.naturalWidth;
+                c.height = img.naturalHeight;
+                c.getContext('2d').drawImage(img, 0, 0);
+                resolve(c.toDataURL('image/png'));
+            };
+            img.onerror = reject;
+            img.src = url;
+        });
+    }
+
+    async function generateCheckinPDF(data) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+        const pageW = 210;
+        const pageH = 297;
+        const margin = 14;
+        const contentW = pageW - margin * 2;
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        let y = 0;
+
+        // ─────────────────────────────────────
+        // HEADER BAND
+        // ─────────────────────────────────────
+        doc.setFillColor(39, 50, 56);
+        doc.rect(0, 0, pageW, 38, 'F');
+
+        // Try to embed logo
+        try {
+            const logoB64 = await loadImageAsBase64(
+                'https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png'
+            );
+            const logoTmpImg = new Image();
+            logoTmpImg.src = logoB64;
+            await new Promise(r => { logoTmpImg.onload = r; });
+            const logoMaxH = 28;
+            const logoW = (logoTmpImg.naturalWidth / logoTmpImg.naturalHeight) * logoMaxH;
+            doc.addImage(logoB64, 'PNG', margin, (38 - logoMaxH) / 2, logoW, logoMaxH);
+        } catch (_) {
+            // CORS blocked – fall back to text
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text('CASH N CARRY', margin, 22);
+        }
+
+        // Tagline right side
+        doc.setTextColor(150, 210, 185);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text('"Pull your part!"', pageW - margin, 20, { align: 'right' });
+        doc.setTextColor(200, 220, 215);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text('cashncarryparts.com', pageW - margin, 27, { align: 'right' });
+
+        y = 47;
+
+        // ─────────────────────────────────────
+        // DOCUMENT TITLE
+        // ─────────────────────────────────────
+        doc.setTextColor(39, 50, 56);
+        doc.setFontSize(15);
+        doc.setFont('helvetica', 'bold');
+        doc.text('YARD CHECK-IN RECORD', margin, y);
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text(dateStr + '  ·  ' + timeStr, pageW - margin, y, { align: 'right' });
+
+        y += 4;
+        doc.setDrawColor(39, 50, 56);
+        doc.setLineWidth(0.6);
+        doc.line(margin, y, pageW - margin, y);
+        y += 10;
+
+        // ─────────────────────────────────────
+        // SECTION HELPER
+        // ─────────────────────────────────────
+        function sectionHeader(title) {
+            doc.setFillColor(242, 245, 246);
+            doc.rect(margin, y, contentW, 8, 'F');
+            doc.setDrawColor(39, 50, 56);
+            doc.setLineWidth(0.3);
+            doc.rect(margin, y, 3, 8, 'F'); // accent bar
+            doc.setFillColor(39, 50, 56);
+            doc.rect(margin, y, 3, 8, 'F');
+            doc.setTextColor(39, 50, 56);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, margin + 6, y + 5.5);
+            y += 13;
+        }
+
+        // ─────────────────────────────────────
+        // CUSTOMER INFORMATION
+        // ─────────────────────────────────────
+        sectionHeader('CUSTOMER INFORMATION');
+
+        const col1 = margin;
+        const col2 = margin + contentW / 2 + 4;
+        const fields = [
+            [['Full Name', (data.firstName + ' ' + data.lastName).trim() || '—'], ['Phone', data.phone || '—']],
+            [['Email', data.email || '—'], ['Check-in Time', timeStr]],
+        ];
+
+        fields.forEach(row => {
+            row.forEach(([label, value], ci) => {
+                const x = ci === 0 ? col1 : col2;
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(120, 120, 120);
+                doc.text(label.toUpperCase(), x, y);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.setTextColor(39, 50, 56);
+                doc.text(value, x, y + 5.5);
+            });
+            y += 14;
+        });
+
+        y += 2;
+        doc.setDrawColor(220, 224, 226);
+        doc.setLineWidth(0.25);
+        doc.line(margin, y, pageW - margin, y);
+        y += 10;
+
+        // ─────────────────────────────────────
+        // WAIVER
+        // ─────────────────────────────────────
+        sectionHeader('RELEASE AND WAIVER OF LIABILITY');
+
+        const waiverText = 'I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous. In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents. I agree not to enter the premises if I am under the influence of alcohol or drugs. This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect. By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents. I further agree to abide by all rules and regulations of Cash N Carry during my visit. All minors under the age of eighteen (18) must be accompanied by an adult.';
+
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(80, 85, 90);
+        const waiverLines = doc.splitTextToSize(waiverText, contentW);
+        doc.text(waiverLines, margin, y);
+        y += waiverLines.length * 4.2 + 10;
+
+        doc.setDrawColor(220, 224, 226);
+        doc.setLineWidth(0.25);
+        doc.line(margin, y, pageW - margin, y);
+        y += 10;
+
+        // ─────────────────────────────────────
+        // SIGNATURE
+        // ─────────────────────────────────────
+        sectionHeader('CUSTOMER SIGNATURE');
+
+        const sigBoxH = 40;
+        doc.setDrawColor(210, 214, 218);
+        doc.setLineWidth(0.25);
+        doc.setFillColor(252, 252, 252);
+        doc.rect(margin, y, contentW, sigBoxH, 'FD');
+        doc.addImage(data.signature, 'PNG', margin + 2, y + 2, contentW - 4, sigBoxH - 4);
+        y += sigBoxH + 6;
+
+        // Sign-off line
+        doc.setDrawColor(39, 50, 56);
+        doc.setLineWidth(0.4);
+        doc.line(margin, y, margin + 90, y);
+        doc.line(pageW - margin - 60, y, pageW - margin, y);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(120, 120, 120);
+        doc.text('Signature of Customer', margin, y + 4);
+        doc.text('Date: ' + now.toLocaleDateString('en-US'), pageW - margin, y + 4, { align: 'right' });
+        y += 14;
+
+        doc.setDrawColor(220, 224, 226);
+        doc.setLineWidth(0.25);
+        doc.line(margin, y, pageW - margin, y);
+        y += 10;
+
+        // ─────────────────────────────────────
+        // PHOTO (new page if tight)
+        // ─────────────────────────────────────
+        const aspect = canvasSnap.width / canvasSnap.height;
+        const photoW = 80;
+        const photoH = photoW / aspect;
+
+        if (y + photoH + 40 > pageH - 20) {
+            doc.addPage();
+            y = 20;
+        }
+
+        sectionHeader('VERIFICATION PHOTO');
+
+        const photoX = (pageW - photoW) / 2;
+        doc.setDrawColor(210, 214, 218);
+        doc.setLineWidth(0.25);
+        doc.rect(photoX, y, photoW, photoH, 'D');
+        doc.addImage(data.photo, 'JPEG', photoX, y, photoW, photoH);
+        y += photoH + 6;
+
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(150, 150, 150);
+        doc.text('Photo captured at time of check-in — ' + timeStr, pageW / 2, y, { align: 'center' });
+        y += 10;
+
+        // ─────────────────────────────────────
+        // FOOTER (every page)
+        // ─────────────────────────────────────
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+            doc.setPage(p);
+            const fy = pageH - 10;
+            doc.setDrawColor(39, 50, 56);
+            doc.setLineWidth(0.3);
+            doc.line(margin, fy - 4, pageW - margin, fy - 4);
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(150, 150, 150);
+            doc.text('Cash N Carry Auto Parts  |  cashncarryparts.com', margin, fy);
+            doc.text('Page ' + p + ' of ' + totalPages, pageW - margin, fy, { align: 'right' });
+        }
+
+        // ─────────────────────────────────────
+        // SAVE
+        // ─────────────────────────────────────
+        const safeName = (data.firstName + '_' + data.lastName).replace(/[^a-zA-Z0-9_]/g, '') || 'Guest';
+        const dateTag = now.toISOString().slice(0, 10);
+        doc.save('CashNCarry_Checkin_' + safeName + '_' + dateTag + '.pdf');
+
+        // Reset after short delay
+        setTimeout(() => location.reload(), 1200);
     }
 </script>
 
