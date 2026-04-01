@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cash N Carry - Check-in Kiosk</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            background-color: #7FE7C3;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ── Page Header ── */
+        .page-header {
+            width: 100%;
+            background-color: #2D3E3F;
+            padding: 22px 20px;
+            text-align: center;
+        }
+        .logo-img { max-height: 65px; }
+
+        /* ── Title Section ── */
+        .page-title {
+            width: 100%;
+            text-align: center;
+            padding: 30px 20px 20px;
+        }
+        .page-title h1 {
+            font-family: 'Poppins', sans-serif;
+            color: #000000;
+            font-size: 34px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .page-title p {
+            font-family: 'Poppins', sans-serif;
+            color: #000000;
+            font-size: 15px;
+            opacity: 0.9;
+        }
+
+        /* ── Form Wrapper (GHL shell) ── */
+        .form-wrap {
+            max-width: 800px;
+            width: calc(100% - 40px);
+            margin: 0 20px 50px;
+            border-radius: 8px;
+            box-shadow: 0px 15px 33px 4px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        /* ── Form Body ── */
+        .ghl-form-body {
+            background-color: #ffffff;
+            padding: 50px 40px 30px;
+            width: 100%;
+        }
+
+        /* ── Inputs ── */
+        .form-control {
+            width: 100%;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            font-size: 15px;
+            font-family: 'Poppins', inherit;
+            color: #374151;
+            transition: border-color 0.2s;
+            background: #fff;
+            display: block;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #84ADFF;
+        }
+        .form-control::placeholder { color: #9CA3AF; }
+
+        /* ── Errors ── */
+        .error-text {
+            color: #DC2626;
+            font-size: 13px;
+            margin-top: -12px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        /* ── Waiver ── */
+        .waiver-text {
+            font-size: 13px;
+            line-height: 1.75;
+            color: #374151;
+            margin-bottom: 28px;
+        }
+        .waiver-text p { margin-bottom: 12px; }
+
+        /* ── Signature ── */
+        .field-label {
+            font-size: 13px;
+            color: #374151;
+            margin-bottom: 8px;
+            display: block;
+            font-weight: 500;
+        }
+        .sig-container {
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            background: #fff;
+            height: 180px;
+            position: relative;
+            touch-action: none;
+            margin-bottom: 6px;
+        }
+        canvas#signature-pad {
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            cursor: crosshair;
+        }
+        .clear-sig {
+            background: none;
+            border: none;
+            color: #6B7280;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+            margin-bottom: 6px;
+            font-family: inherit;
+        }
+
+        /* ── Camera ── */
+        #camera-area {
+            background: #F9FAFB;
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid #E5E7EB;
+            margin-top: 24px;
+            margin-bottom: 4px;
+        }
+        .media-box {
+            width: 100%;
+            max-width: 420px;
+            height: 260px;
+            border-radius: 6px;
+            background: #000;
+            margin: 0 auto 14px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #D1D5DB;
+        }
+        video, canvas#snapshot { width: 100%; height: 100%; object-fit: cover; }
+        #snapshot { display: none; }
+        .btn-camera {
+            background: #6B7280;
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+        .btn-camera:hover { background: #4B5563; }
+
+        /* ── GHL Footer ── */
+        .ghl-footer {
+            background-color: #273238;
+            border-radius: 0 0 8px 8px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'Roboto', 'Poppins', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .footer-placeholder { width: 100px; }
+        .step-indicator { color: rgb(178, 204, 255); font-size: 14px; }
+        .footer-next-btn {
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 0 0 8px 0;
+            color: #ffffff;
+            border: none;
+            padding: 0 20px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+        .footer-next-btn:hover { background-color: rgba(0,0,0,0.2); }
+
+        /* ── Steps ── */
+        .step { display: none; }
+        .step.active { display: block; }
+    </style>
+</head>
+<body>
+
+<!-- Page Header -->
+<header class="page-header">
+    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png" alt="Cash N Carry Logo" class="logo-img">
+</header>
+
+<!-- Title -->
+<div class="page-title">
+    <h1>Cash N Carry Check in Kiosk</h1>
+    <p>Please fill the form below to check in the yard.</p>
+</div>
+
+<!-- Form Wrap -->
+<div class="form-wrap">
+    <form id="kioskForm">
+        <div class="ghl-form-body">
+
+            <!-- Step 1: Contact Info -->
+            <div class="step active" id="step1">
+                <input type="text" id="custName" class="form-control" placeholder="First Name">
+                <input type="text" id="custLastName" class="form-control" placeholder="Last Name">
+                <input type="tel" id="custPhone" class="form-control" placeholder="Phone*">
+                <div id="phoneError" class="error-text">Phone is required</div>
+                <input type="email" id="custEmail" class="form-control" placeholder="Email">
+            </div>
+
+            <!-- Step 2: Waiver + Signature + Photo -->
+            <div class="step" id="step2">
+                <div class="waiver-text">
+                    <p>I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous.</p>
+                    <p>In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents.</p>
+                    <p>I agree not to enter the premises if I am under the influence of alcohol or drugs.</p>
+                    <p>This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect.</p>
+                    <p>By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents.</p>
+                    <p>I further agree to abide by all rules and regulations of Cash N Carry during my visit.</p>
+                    <p>All minors under the age of eighteen (18) must be accompanied by an adult.</p>
+                </div>
+
+                <span class="field-label">Signature *</span>
+                <div class="sig-container">
+                    <canvas id="signature-pad"></canvas>
+                </div>
+                <button type="button" class="clear-sig" onclick="clearSignature()">Clear</button>
+                <div id="sigError" class="error-text" style="margin-top:4px;">Signature is required</div>
+
+                <span class="field-label" style="margin-top:24px;">Verification Photo *</span>
+                <div id="camera-area">
+                    <div class="media-box">
+                        <video id="video" autoplay playsinline></video>
+                        <canvas id="snapshot"></canvas>
+                    </div>
+                    <button type="button" id="snapBtn" class="btn-camera">Take Photo</button>
+                </div>
+                <div id="photoError" class="error-text" style="margin-top:4px;">Please take a verification photo</div>
+            </div>
+
+        </div>
+
+        <!-- GHL-style Footer -->
+        <div class="ghl-footer">
+            <div class="footer-placeholder"></div>
+            <span class="step-indicator" id="stepIndicator">1 of 2</span>
+            <button type="button" class="footer-next-btn" onclick="handleFooterBtn()">
+                <span id="footerBtnText">NEXT</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                    <path d="M3 9H15M15 9L10.5 4.5M15 9L10.5 13.5"></path>
+                </svg>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    let currentStep = 1;
+    const totalSteps = 2;
+
+    // ── Camera ──
+    const video = document.getElementById('video');
+    const canvasSnap = document.getElementById('snapshot');
+    const snapBtn = document.getElementById('snapBtn');
+
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+            .then(stream => video.srcObject = stream)
+            .catch(() => alert("Please allow camera access to continue."));
+    }
+
+    snapBtn.onclick = () => {
+        if (snapBtn.innerText === "Take Photo") {
+            const ctx = canvasSnap.getContext('2d');
+            canvasSnap.width = video.videoWidth;
+            canvasSnap.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            video.style.display = 'none';
+            canvasSnap.style.display = 'block';
+            snapBtn.innerText = "Retake Photo";
+            document.getElementById('photoError').style.display = 'none';
+        } else {
+            video.style.display = 'block';
+            canvasSnap.style.display = 'none';
+            snapBtn.innerText = "Take Photo";
+        }
+    };
+
+    // ── Signature Pad ──
+    const canvas = document.getElementById('signature-pad');
+    let signaturePad;
+
+    function initSignaturePad() {
+        if (typeof SignaturePad !== 'undefined') {
+            signaturePad = new SignaturePad(canvas, {
+                penColor: "#111827",
+                minWidth: 1,
+                maxWidth: 3,
+                velocityFilterWeight: 0.7
+            });
+            resizeCanvas();
+        } else {
+            setTimeout(initSignaturePad, 100);
+        }
+    }
+
+    function resizeCanvas() {
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0) return; // not visible yet
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        if (signaturePad) signaturePad.clear();
+    }
+
+    function clearSignature() {
+        if (signaturePad) signaturePad.clear();
+    }
+
+    window.addEventListener("load", initSignaturePad);
+    window.addEventListener("resize", () => { if (currentStep === 2) resizeCanvas(); });
+
+    // ── Step Navigation ──
+    function goToStep(step) {
+        document.getElementById('step' + currentStep).classList.remove('active');
+        currentStep = step;
+        document.getElementById('step' + currentStep).classList.add('active');
+        document.getElementById('stepIndicator').textContent = currentStep + ' of ' + totalSteps;
+        document.getElementById('footerBtnText').textContent = currentStep === totalSteps ? 'SUBMIT' : 'NEXT';
+
+        if (currentStep === 2) {
+            startCamera();
+            // Resize signature pad after step becomes visible
+            setTimeout(resizeCanvas, 150);
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function handleFooterBtn() {
+        if (currentStep === 1) {
+            const phone = document.getElementById('custPhone').value.trim();
+            const phoneError = document.getElementById('phoneError');
+            if (!phone) {
+                phoneError.style.display = 'block';
+                return;
+            }
+            phoneError.style.display = 'none';
+            goToStep(2);
+
+        } else {
+            let valid = true;
+
+            if (!signaturePad || signaturePad.isEmpty()) {
+                document.getElementById('sigError').style.display = 'block';
+                valid = false;
+            } else {
+                document.getElementById('sigError').style.display = 'none';
+            }
+
+            if (canvasSnap.style.display !== 'block') {
+                document.getElementById('photoError').style.display = 'block';
+                valid = false;
+            } else {
+                document.getElementById('photoError').style.display = 'none';
+            }
+
+            if (!valid) return;
+
+            const payload = {
+                firstName: document.getElementById('custName').value,
+                lastName: document.getElementById('custLastName').value,
+                phone: document.getElementById('custPhone').value.trim(),
+                email: document.getElementById('custEmail').value,
+                signature: signaturePad.toDataURL(),
+                photo: canvasSnap.toDataURL('image/jpeg')
+            };
+
+            console.log('Check-in payload:', payload);
+            alert("✓ Check-in successful! Welcome to Cash N Carry.");
+            setTimeout(() => location.reload(), 1000);
+        }
+    }
+</script>
+
+</body>
+</html>
