@@ -678,9 +678,10 @@
         // ─────────────────────────────────────
         // UPLOAD TO SERVER via save.php
         // ─────────────────────────────────────
-        const safeName = (data.firstName + '_' + data.lastName).replace(/[^a-zA-Z0-9_]/g, '') || 'Guest';
-        const dateTag  = now.toISOString().slice(0, 10);
-        const filename = 'CashNCarry_Checkin_' + safeName + '_' + dateTag;
+        const safeName  = (data.firstName + '_' + data.lastName).replace(/[^a-zA-Z0-9_]/g, '') || 'Guest';
+        const dateTag   = now.toISOString().slice(0, 10);                           // 2026-04-01
+        const timeTag   = now.toTimeString().slice(0, 8).replace(/:/g, '-');        // 14-32-05
+        const filename  = safeName + '_' + dateTag + '_' + timeTag;                 // John_Smith_2026-04-01_14-32-05
 
         // Get PDF as base64 data-URI string
         const pdfBase64 = doc.output('datauristring');
