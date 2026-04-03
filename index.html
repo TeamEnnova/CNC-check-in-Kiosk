@@ -4,359 +4,571 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cash N Carry - Check-in Kiosk</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Poppins', 'Segoe UI', sans-serif;
-            background-color: #93E3AB;
-            min-height: 100vh;
+        * { box-sizing: border-box; margin: 0; user-select: none; justify-content: center; }
+        html, body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #2D3E3F;
+            height: 100vh;
+            overflow: hidden;
+            color: #ffffff;
+        }
+
+        .kiosk {
+            height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
 
-        /* ── Page Header ── */
-        .page-header {
-            width: 100%;
-            background-color: #2D3E3F;
-            padding: 22px 20px;
-            text-align: center;
-        }
-        .logo-img { max-height: 65px; }
+        /* ── Logo ── */
+        .logo-wrap { text-align: center; margin-bottom: 16px; }
+        .logo-wrap img { height: 60px; }
 
-        /* ── Title Section ── */
-        .page-title {
-            width: 100%;
+        /* ── Steps ── */
+        .step { display: none; width: 100%; max-width: 600px; }
+        .step.active { display: flex; flex-direction: column; align-items: center; }
+
+        /* ── Step 1: Phone Dial Pad ── */
+        .phone-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: white;
             text-align: center;
-            padding: 30px 20px 20px;
+            margin-bottom: 2px;
         }
-        .page-title h1 {
-            font-family: 'Poppins', sans-serif;
-            color: #000000;
-            font-size: 34px;
+        .phone-subtitle {
+            font-size: 18px;
+            font-weight: 600;
+            color: #FFB800;
+            text-align: center;
+            margin-bottom: 22px;
+        }
+
+        .phone-display-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+
+        }
+        .phone-display {
+            background: #f0f0f0;
+            color: #333;
+            font-size: 28px;
+            font-weight: 400;
+            font-family: 'Poppins', monospace;
+            padding: 14px 28px;
+            border-radius: 40px;
+            min-width: 290px;
+            text-align: center;
+            letter-spacing: 2px;
+            border: 2px solid #ccc;
+        }
+        .btn-backspace {
+            background: white;
+            border: none;
+            border-radius: 50%;
+            width: 75px;
+            height: 75px;
+            font-size: 28px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            transition: background 0.15s;
+        }
+        .btn-backspace:hover { background: #d0d0d0; }
+
+
+        /* Opt Out row */
+        .opt-out-row {
+            display: flex;
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .btn-opt-out {
+            background: #f21b3f;
+            color: white;
+            font-size: 16px;
             font-weight: 700;
-            margin-bottom: 8px;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 28px;
+            cursor: pointer;
+            transition: background 0.15s;
         }
-        .page-title p {
+        .btn-opt-out:hover { background: #f21b3f; }
+
+        /* Dial Pad */
+        .dialpad {
+            display: grid;
+            grid-template-columns: repeat(3, 78px);
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+        .dialpad button {
+            width: 78px;
+            height: 78px;
+            font-size: 28px;
+            font-weight: 700;
             font-family: 'Poppins', sans-serif;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.12s, transform 0.1s;
+        }
+        .dialpad button:active { transform: scale(0.95); }
+        .dialpad .btn-num {
+            background: #2D3E3F;
+            color: #7FE7C3;
+            border: 2px solid #7FE7C3;
+        }
+        .btn-num:hover { background: white; border:2px solid white; color: black}
+        .dialpad .btn-clear {
+            background: #f21b3f;
+            color: white;
+        }
+        .btn-clear:hover { background: #b91c1c; }
+        .dialpad .btn-zero {
+            background: #2D3E3F;
+            color: #7FE7C3;
+            border: 2px solid #7FE7C3;
+        }
+        .btn-zero:hover { background: #2D3E3F; }
+        .dialpad .btn-submit {
+            background: #7FE7C3;
             color: #000000;
-            font-size: 15px;
-            opacity: 0.9;
+            border: 2px solid transparent;
+        }
+        .dialpad .btn-submit:hover {
+            
+            color: black;
+            border: 2px solid #ffffff;
+            background: white;
         }
 
-        /* ── Form Wrapper (GHL shell) ── */
-        .form-wrap {
-            max-width: 800px;
-            width: calc(100% - 40px);
-            margin: 0 20px 50px;
-            border-radius: 8px;
-            box-shadow: 0px 15px 33px 4px rgba(0,0,0,0.15);
-            overflow: hidden;
-        }
-
-        /* ── Form Body ── */
-        .ghl-form-body {
-            background-color: #ffffff;
-            padding: 50px 40px 30px;
+        /* Language buttons */
+        .lang-row {
+            display: flex;
             width: 100%;
+            position: fixed;
+            bottom: 0;
+            left: 0;
         }
-
-        /* ── Inputs ── */
-        .form-control {
-            width: 100%;
-            padding: 14px 18px;
-            margin-bottom: 16px;
-            border: 1px solid #D1D5DB;
-            border-radius: 6px;
-            font-size: 15px;
-            font-family: 'Poppins', inherit;
-            color: #374151;
-            transition: border-color 0.2s;
-            background: #fff;
-            display: block;
-        }
-        .form-control:focus {
-            outline: none;
-            border-color: #84ADFF;
-        }
-        .form-control::placeholder { color: #9CA3AF; }
-
-        /* ── Errors ── */
-        .error-text {
-            color: #DC2626;
+        .btn-lang {
+            flex: 1;
+            padding: 18px 20px;
             font-size: 13px;
-            margin-top: -12px;
-            margin-bottom: 14px;
-            display: none;
-        }
-
-        /* ── Waiver ── */
-        .waiver-text {
-            font-size: 13px;
-            line-height: 1.75;
-            color: #374151;
-            margin-bottom: 28px;
-        }
-        .waiver-text p { margin-bottom: 12px; }
-
-        /* ── Signature ── */
-        .field-label {
-            font-size: 13px;
-            color: #374151;
-            margin-bottom: 8px;
-            display: block;
             font-weight: 500;
+            border: none;
+            cursor: pointer;
+            color: #333;
+            background: #e8e8e8;
+            transition: background 0.15s;
+            line-height: 1.4;
+        }
+        .btn-lang:first-child { border-right: 1px solid #ccc; }
+        .btn-lang .lang-title {
+            display: block;
+            font-size: 20px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .btn-lang .lang-desc {
+            display: block;
+            font-size: 14px;
+            font-weight: 400;
+            color: #666;
+            line-height: 1.3;
+        }
+        .btn-lang.active-lang {
+            background: #7FE7C3;
+            color: #1a2e2f;
+        }
+
+        /* ── Step 2: Waiver + Signature ── */
+        .step2-content {
+            width: 100%;
+            max-width: 900px;
+            padding-right: 10px;
+        }
+        .waiver-box {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #d1d5db;
+        }
+        .waiver-box::-webkit-scrollbar { width: 6px; }
+        .waiver-box::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .sig-label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #7FE7C3;
         }
         .sig-container {
-            border: 1px solid #D1D5DB;
-            border-radius: 6px;
-            background: #fff;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: #ffffff;
             height: 180px;
             position: relative;
             touch-action: none;
-            margin-bottom: 6px;
+            margin-bottom: 16px;
         }
         canvas#signature-pad {
             width: 100%;
             height: 100%;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: crosshair;
         }
         .clear-sig {
-            background: none;
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(0,0,0,0.08);
             border: none;
-            color: #6B7280;
-            font-size: 13px;
+            color: #888;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
             cursor: pointer;
-            text-decoration: underline;
-            padding: 0;
-            margin-bottom: 6px;
-            font-family: inherit;
-        }
-
-        /* ── Camera ── */
-        #camera-area {
-            background: #F9FAFB;
-            border-radius: 6px;
-            padding: 16px;
-            text-align: center;
-            border: 1px solid #E5E7EB;
-            margin-top: 24px;
-            margin-bottom: 4px;
-        }
-        .media-box {
-            width: 100%;
-            max-width: 420px;
-            height: 260px;
-            border-radius: 6px;
-            background: #000;
-            margin: 0 auto 14px;
-            overflow: hidden;
+            font-size: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid #D1D5DB;
+            z-index: 2;
+            transition: background 0.15s;
+            padding: 0;
         }
-        video, canvas#snapshot { width: 100%; height: 100%; object-fit: cover; }
-        #snapshot { display: none; }
-        .btn-camera {
-            background: #6B7280;
-            color: white;
-            border: none;
-            padding: 10px 22px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-family: inherit;
-            transition: background 0.2s;
-        }
-        .btn-camera:hover { background: #4B5563; }
+        .clear-sig:hover { background: rgba(0,0,0,0.15); color: #333; }
 
         /* ── GHL Footer ── */
         .ghl-footer {
-            background-color: #273238;
+            width: 100%;
+            max-width: 900px;
+            background-color: #1a2829;
             border-radius: 0 0 8px 8px;
             height: 50px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-family: 'Roboto', 'Poppins', sans-serif;
             font-size: 14px;
             font-weight: 500;
+            margin-top: 10px;
         }
         .footer-placeholder { width: 100px; }
         .step-indicator { color: rgb(178, 204, 255); font-size: 14px; }
-        .footer-next-btn {
-            background-color: rgba(0,0,0,0.1);
+        .footer-btn {
+            background-color: rgba(0,0,0,0.2);
             border-radius: 0 0 8px 0;
             color: #ffffff;
             border: none;
-            padding: 0 20px;
+            padding: 0 24px;
             height: 50px;
             cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             font-family: inherit;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             transition: background 0.2s;
         }
-        .footer-next-btn:hover { background-color: rgba(0,0,0,0.2); }
-
-        /* ── Steps ── */
-        .step { display: none; }
-        .step.active { display: block; }
+        .footer-btn:hover { background-color: rgba(0,0,0,0.35); }
 
         /* ── Status Banner ── */
         .status-banner {
             display: none;
             position: fixed;
-            top: 20px;
+            top: 30px;
             left: 50%;
             transform: translateX(-50%);
-            min-width: 320px;
+            min-width: 340px;
             max-width: 90vw;
-            padding: 16px 24px;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 600;
+            padding: 18px 28px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 700;
             text-align: center;
             z-index: 9999;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.3);
         }
-        .banner-success {
-            background: #273238;
-            color: #7FE7C3;
-            border: 1px solid #7FE7C3;
-        }
-        .banner-warn {
-            background: #fff8e1;
-            color: #92400e;
-            border: 1px solid #f59e0b;
-        }
+        .banner-success { background: #14532d; color: #7FE7C3; border: 2px solid #7FE7C3; }
+        .banner-warn { background: #fff8e1; color: #92400e; border: 2px solid #f59e0b; }
+
+        /* ── Error ── */
+        .error-text { color: #f87171; font-size: 13px; margin-top: -8px; margin-bottom: 10px; display: none; text-align: center; }
+
+        /* Hidden video for auto-capture */
+        #video-hidden { position: fixed; top: 0; left: 0; width: 320px; height: 240px; opacity: 0.001; pointer-events: none; z-index: -1; }
     </style>
 </head>
 <body>
 
-<!-- Status Banner -->
 <div id="statusBanner" class="status-banner"></div>
 
-<!-- Page Header -->
-<header class="page-header">
-    <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png" alt="Cash N Carry Logo" class="logo-img">
-</header>
+<!-- Hidden camera for auto-capture -->
+<video id="video-hidden" autoplay playsinline muted></video>
+<canvas id="snapshot-hidden" style="display:none;"></canvas>
 
-<!-- Title -->
-<div class="page-title">
-    <h1>Cash N Carry Check in Kiosk</h1>
-    <p>Please fill the form below to check in the yard.</p>
-</div>
+<div class="kiosk">
 
-<!-- Form Wrap -->
-<div class="form-wrap">
-    <form id="kioskForm">
-        <div class="ghl-form-body">
+    <!-- Logo -->
+    <div class="logo-wrap">
+        <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png" alt="Cash N Carry Logo">
+    </div>
 
-            <!-- Step 1: Contact Info -->
-            <div class="step active" id="step1">
-                <input type="text" id="custName" class="form-control" placeholder="First Name">
-                <input type="text" id="custLastName" class="form-control" placeholder="Last Name">
-                <input type="tel" id="custPhone" class="form-control" placeholder="Phone*">
-                <div id="phoneError" class="error-text">Phone is required</div>
-                <input type="email" id="custEmail" class="form-control" placeholder="Email">
-            </div>
+    <!-- ═══════════════ STEP 1: Phone Entry ═══════════════ -->
+    <div class="step active" id="step1">
+        <div class="phone-title" data-en="Enter Your Phone Number" data-es="Ingrese Su Número Telefónico:"> Enter Your Phone Number </div>
+        <div class="phone-subtitle" data-en="" data-es="Numero Telefonico:"></div>
 
-            <!-- Step 2: Waiver + Signature + Photo -->
-            <div class="step" id="step2">
-                <div class="waiver-text">
-                    <p>I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous.</p>
-                    <p>In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents.</p>
-                    <p>I agree not to enter the premises if I am under the influence of alcohol or drugs.</p>
-                    <p>This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect.</p>
-                    <p>By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents.</p>
-                    <p>I further agree to abide by all rules and regulations of Cash N Carry during my visit.</p>
-                    <p>All minors under the age of eighteen (18) must be accompanied by an adult.</p>
-                </div>
-
-                <span class="field-label">Signature *</span>
-                <div class="sig-container">
-                    <canvas id="signature-pad"></canvas>
-                </div>
-                <button type="button" class="clear-sig" onclick="clearSignature()">Clear</button>
-                <div id="sigError" class="error-text" style="margin-top:4px;">Signature is required</div>
-
-                <span class="field-label" style="margin-top:24px;">Verification Photo *</span>
-                <div id="camera-area">
-                    <div class="media-box">
-                        <video id="video" autoplay playsinline></video>
-                        <canvas id="snapshot"></canvas>
-                    </div>
-                    <button type="button" id="snapBtn" class="btn-camera">Take Photo</button>
-                </div>
-                <div id="photoError" class="error-text" style="margin-top:4px;">Please take a verification photo</div>
-            </div>
-
+        <div class="phone-display-row">
+            <div class="phone-display" id="phoneDisplay">(xxx)xxx-xxxx</div>
+            <button class="btn-backspace" onclick="phoneBackspace()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M15.683 3a2 2 0 0 0-2-2h-7.08a2 2 0 0 0-1.519.698L.241 7.35a1 1 0 0 0 0 1.302l4.843 5.65A2 2 0 0 0 6.603 15h7.08a2 2 0 0 0 2-2V3zM5.829 5.854a.5.5 0 1 1 .707-.708l2.147 2.147 2.146-2.147a.5.5 0 1 1 .707.708L9.39 8l2.146 2.146a.5.5 0 0 1-.707.708L8.683 8.707l-2.147 2.147a.5.5 0 0 1-.707-.708L7.976 8 5.829 5.854z"/>
+                </svg>
+            </button>
         </div>
 
-        <!-- GHL-style Footer -->
+        <div class="opt-out-pad">
+            <div class="opt-out-row">
+            <button class="btn-opt-out" data-en="Opt Out" data-es="Optar Por No" onclick="optOut()">Opt Out</button>
+            <button class="btn-opt-out" data-en="Opt Out" data-es="Optar Por No" onclick="optOut()" id="btnOptOutEs" style="display:none;">Optar Por No</button>
+        </div>
+
+        <div id="phoneError" class="error-text" data-en="Please enter a 10-digit phone number" data-es="Ingrese un número de teléfono de 10 dígitos">Please enter a 10-digit phone number</div>
+
+        <div class="dialpad">
+            <button class="btn-num" onclick="phonePress('1')">1</button>
+            <button class="btn-num" onclick="phonePress('2')">2</button>
+            <button class="btn-num" onclick="phonePress('3')">3</button>
+            <button class="btn-num" onclick="phonePress('4')">4</button>
+            <button class="btn-num" onclick="phonePress('5')">5</button>
+            <button class="btn-num" onclick="phonePress('6')">6</button>
+            <button class="btn-num" onclick="phonePress('7')">7</button>
+            <button class="btn-num" onclick="phonePress('8')">8</button>
+            <button class="btn-num" onclick="phonePress('9')">9</button>
+            <button class="btn-clear" onclick="phoneClear()">✕</button>
+            <button class="btn-zero" onclick="phonePress('0')">0</button>
+            <button class="btn-submit" onclick="phoneSubmit()">✓</button>
+        </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ STEP 2: Waiver + Signature ═══════════════ -->
+    <div class="step" id="step2">
+        <div class="step2-content">
+            <div class="waiver-box" id="waiverBox">
+                <p data-en="I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous."
+                   data-es="Reconozco que un depósito de salvamento de automóviles, como Cash N Carry, presenta ciertos riesgos para mí y mis agentes, y que estar en las instalaciones y/o retirar piezas de automóviles es inherentemente peligroso.">I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous.</p><br>
+
+                <p data-en="In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents."
+                   data-es="En consideración de que se me permita entrar y retirar piezas a precios relativamente bajos, por la presente libero, indemnifico y eximo de toda responsabilidad a Cash N Carry, sus oficiales, agentes y cesionarios, de toda responsabilidad, reclamos, demandas y causas de acción que surjan de o estén relacionadas con cualquier pérdida, daño, lesión o muerte sufrida por mí o mis agentes.">In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents.</p><br>
+
+                <p data-en="I agree not to enter the premises if I am under the influence of alcohol or drugs."
+                   data-es="Acepto no entrar a las instalaciones si estoy bajo la influencia del alcohol o drogas.">I agree not to enter the premises if I am under the influence of alcohol or drugs.</p><br>
+
+                <p data-en="This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect."
+                   data-es="Esta liberación es vinculante para mis herederos, agentes, familiares cercanos, ejecutores y administradores. Si alguna disposición es considerada inválida por un tribunal competente, esa porción será eliminada sin afectar el resto, que permanecerá en pleno vigor y efecto.">This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect.</p><br>
+
+                <p data-en="By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents."
+                   data-es="Al ejecutar esta liberación, acepto pagar la tarifa de entrada y confirmo que he leído y entiendo este acuerdo, tengo al menos dieciocho (18) años de edad, estoy en pleno uso de mis facultades mentales, y firmo voluntariamente sin influencia indebida o presión por parte de Cash N Carry o sus agentes.">By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents.</p><br>
+
+                <p data-en="I further agree to abide by all rules and regulations of Cash N Carry during my visit. All minors under the age of eighteen (18) must be accompanied by an adult."
+                   data-es="Además, acepto cumplir con todas las reglas y regulaciones de Cash N Carry durante mi visita. Todos los menores de dieciocho (18) años deben estar acompañados por un adulto.">I further agree to abide by all rules and regulations of Cash N Carry during my visit. All minors under the age of eighteen (18) must be accompanied by an adult.</p>
+            </div>
+
+            <div class="sig-label" data-en="Sign below to accept:" data-es="Firme abajo para aceptar:">Sign below to accept:</div>
+            <div class="sig-container">
+                <canvas id="signature-pad"></canvas>
+                <button type="button" class="clear-sig" onclick="clearSignature()" title="Clear">✕</button>
+            </div>
+
+            <div id="sigError" class="error-text" data-en="Signature is required" data-es="La firma es obligatoria">Signature is required</div>
+        </div>
+
         <div class="ghl-footer">
             <div class="footer-placeholder"></div>
-            <span class="step-indicator" id="stepIndicator">1 of 2</span>
-            <button type="button" class="footer-next-btn" onclick="handleFooterBtn()">
-                <span id="footerBtnText">NEXT</span>
+            <span class="step-indicator">2 of 2</span>
+            <button class="footer-btn" onclick="submitForm()">
+                <span id="footerBtnText" data-en="SUBMIT" data-es="ENVIAR">SUBMIT</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" stroke="#FFFFFF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
                     <path d="M3 9H15M15 9L10.5 4.5M15 9L10.5 13.5"></path>
                 </svg>
             </button>
         </div>
-    </form>
+    </div>
+
+</div>
+
+<!-- Language Bar (always visible on step 1) -->
+<div class="lang-row" id="langBar">
+    <button class="btn-lang active-lang" onclick="setLang('en')">
+        <span class="lang-title">Continue In English</span>
+        <span class="lang-desc">By pressing continue, you are signing up to receive automated text and marketing calls from an autodialer system or live person. Automated text alerts and marketing calls not necessary for purchase. Approx 9 msgs/mo. Msg & Data Rates May Apply. For HELP, STOP ALL to cancel. Ts & Cs / Privacy: https://client.texnrewards.net/terms_of_use.asp</span>
+    </button>
+    <button class="btn-lang" onclick="setLang('es')">
+        <span class="lang-title">Continuar Español</span>
+        <span class="lang-desc">Presionando siguiente, te estás inscribiendo para recibir alertas automáticas de texto de un Sistema de marcado automático y consentimiento para recibir alertas automáticas de texto y llamadas de marketing. No es necesario para compra. Aproximadamente 9 mensajes/mes. Pueden aplicar tarifas de mensajes y datos. Responde AYUDA por ayuda, deja de cancelar. Ts y Cs / Política de privacidad: https://client.texnrewards.net/terms_of_use.asp</span>
+    </button>
 </div>
 
 <script>
-    let currentStep = 1;
-    const totalSteps = 2;
+    // ═══════════════════════════════════════
+    // LANGUAGE
+    // ═══════════════════════════════════════
+    let lang = 'en';
 
-    // ── Camera ──
-    const video = document.getElementById('video');
-    const canvasSnap = document.getElementById('snapshot');
-    const snapBtn = document.getElementById('snapBtn');
+    function setLang(l) {
+        lang = l;
+        document.querySelectorAll('.btn-lang').forEach(btn => btn.classList.remove('active-lang'));
+        document.querySelectorAll('.btn-lang')[l === 'en' ? 0 : 1].classList.add('active-lang');
 
-    function startCamera() {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
-            .then(stream => video.srcObject = stream)
-            .catch(() => alert("Please allow camera access to continue."));
+        document.querySelectorAll('[data-' + l + ']').forEach(el => {
+            const val = el.getAttribute('data-' + l);
+            if (val !== null && val !== '') el.textContent = val;
+        });
+
+        // Show correct opt-out button
+        document.querySelector('.opt-out-row').querySelectorAll('.btn-opt-out')[0].style.display = l === 'en' ? '' : 'none';
+        document.getElementById('btnOptOutEs').style.display = l === 'es' ? '' : 'none';
     }
 
-    snapBtn.onclick = () => {
-        if (snapBtn.innerText === "Take Photo") {
-            const ctx = canvasSnap.getContext('2d');
-            canvasSnap.width = video.videoWidth;
-            canvasSnap.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            video.style.display = 'none';
-            canvasSnap.style.display = 'block';
-            snapBtn.innerText = "Retake Photo";
-            document.getElementById('photoError').style.display = 'none';
-        } else {
-            video.style.display = 'block';
-            canvasSnap.style.display = 'none';
-            snapBtn.innerText = "Take Photo";
-        }
-    };
+    // ═══════════════════════════════════════
+    // PHONE DIALPAD
+    // ═══════════════════════════════════════
+    let phoneDigits = '';
 
-    // ── Signature Pad ──
-    const canvas = document.getElementById('signature-pad');
+    function formatPhone(d) {
+        if (d.length === 0) return '(xxx)xxx-xxxx';
+        let f = '(';
+        for (let i = 0; i < 10; i++) {
+            if (i === 3) f += ')';
+            if (i === 6) f += '-';
+            f += i < d.length ? d[i] : 'x';
+        }
+        return f;
+    }
+
+    function phonePress(digit) {
+        if (phoneDigits.length >= 10) return;
+        phoneDigits += digit;
+        document.getElementById('phoneDisplay').textContent = formatPhone(phoneDigits);
+        document.getElementById('phoneError').style.display = 'none';
+    }
+
+    function phoneBackspace() {
+        phoneDigits = phoneDigits.slice(0, -1);
+        document.getElementById('phoneDisplay').textContent = formatPhone(phoneDigits);
+    }
+
+    function phoneClear() {
+        phoneDigits = '';
+        document.getElementById('phoneDisplay').textContent = formatPhone(phoneDigits);
+    }
+
+    function phoneSubmit() {
+        if (phoneDigits.length !== 10) {
+            document.getElementById('phoneError').style.display = 'block';
+            return;
+        }
+        document.getElementById('phoneError').style.display = 'none';
+        goToStep(2);
+    }
+
+    function optOut() {
+        phoneDigits = '';
+        document.getElementById('phoneDisplay').textContent = formatPhone(phoneDigits);
+        goToStep(2);
+    }
+
+    // ═══════════════════════════════════════
+    // STEP NAVIGATION
+    // ═══════════════════════════════════════
+    let currentStep = 1;
+
+    function goToStep(step) {
+        document.getElementById('step' + currentStep).classList.remove('active');
+        currentStep = step;
+        document.getElementById('step' + currentStep).classList.add('active');
+
+        // Hide language bar on step 2
+        document.getElementById('langBar').style.display = step === 1 ? 'flex' : 'none';
+
+        if (step === 2) {
+            setTimeout(resizeCanvas, 200);
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // HIDDEN CAMERA (auto-capture)
+    // ═══════════════════════════════════════
+    const videoEl = document.getElementById('video-hidden');
+    const snapCanvas = document.getElementById('snapshot-hidden');
+    let capturedPhoto = null;
+
+    function startCamera() {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 } })
+            .then(stream => { videoEl.srcObject = stream; })
+            .catch(() => { /* camera not available — continue without photo */ });
+    }
+
+    function capturePhoto() {
+        if (!videoEl.srcObject || videoEl.readyState < 2) return null;
+        const ctx = snapCanvas.getContext('2d');
+        snapCanvas.width = videoEl.videoWidth || 640;
+        snapCanvas.height = videoEl.videoHeight || 480;
+        ctx.drawImage(videoEl, 0, 0);
+        return snapCanvas.toDataURL('image/jpeg', 0.8);
+    }
+
+    function capturePhotoWhenReady() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds
+            const tryCapture = () => {
+                attempts++;
+                if (videoEl.srcObject && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+                    const ctx = snapCanvas.getContext('2d');
+                    snapCanvas.width = videoEl.videoWidth;
+                    snapCanvas.height = videoEl.videoHeight;
+                    ctx.drawImage(videoEl, 0, 0);
+                    resolve(snapCanvas.toDataURL('image/jpeg', 0.8));
+                } else if (attempts < maxAttempts) {
+                    setTimeout(tryCapture, 100);
+                } else {
+                    resolve(null); // give up after 5s
+                }
+            };
+            tryCapture();
+        });
+    }
+
+    // ═══════════════════════════════════════
+    // SIGNATURE PAD
+    // ═══════════════════════════════════════
+    const sigCanvas = document.getElementById('signature-pad');
     let signaturePad;
 
     function initSignaturePad() {
         if (typeof SignaturePad !== 'undefined') {
-            signaturePad = new SignaturePad(canvas, {
+            signaturePad = new SignaturePad(sigCanvas, {
                 penColor: "#111827",
-                minWidth: 1,
+                minWidth: 1.5,
                 maxWidth: 3,
                 velocityFilterWeight: 0.7
             });
@@ -368,13 +580,13 @@
 
     function resizeCanvas() {
         const ratio = Math.max(window.devicePixelRatio || 1, 1);
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width === 0) return; // not visible yet
-        canvas.width = rect.width * ratio;
-        canvas.height = rect.height * ratio;
-        canvas.getContext("2d").scale(ratio, ratio);
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
+        const rect = sigCanvas.getBoundingClientRect();
+        if (rect.width === 0) return;
+        sigCanvas.width = rect.width * ratio;
+        sigCanvas.height = rect.height * ratio;
+        sigCanvas.getContext("2d").scale(ratio, ratio);
+        sigCanvas.style.width = '100%';
+        sigCanvas.style.height = '100%';
         if (signaturePad) signaturePad.clear();
     }
 
@@ -382,78 +594,44 @@
         if (signaturePad) signaturePad.clear();
     }
 
-    window.addEventListener("load", initSignaturePad);
+    window.addEventListener("load", () => { initSignaturePad(); startCamera(); });
     window.addEventListener("resize", () => { if (currentStep === 2) resizeCanvas(); });
 
-    // ── Step Navigation ──
-    function goToStep(step) {
-        document.getElementById('step' + currentStep).classList.remove('active');
-        currentStep = step;
-        document.getElementById('step' + currentStep).classList.add('active');
-        document.getElementById('stepIndicator').textContent = currentStep + ' of ' + totalSteps;
-        document.getElementById('footerBtnText').textContent = currentStep === totalSteps ? 'SUBMIT' : 'NEXT';
-
-        if (currentStep === 2) {
-            startCamera();
-            // Resize signature pad after step becomes visible
-            setTimeout(resizeCanvas, 150);
+    // ═══════════════════════════════════════
+    // SUBMIT → PDF → save.php
+    // ═══════════════════════════════════════
+    async function submitForm() {
+        // Validate signature
+        if (!signaturePad || signaturePad.isEmpty()) {
+            document.getElementById('sigError').style.display = 'block';
+            return;
         }
+        document.getElementById('sigError').style.display = 'none';
 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Use pre-captured photo
+        const photoData = await capturePhotoWhenReady();
+
+        const data = {
+            phone: phoneDigits || 'OptOut',
+            signature: signaturePad.toDataURL('image/png'),
+            photo: photoData,
+        };
+
+        document.getElementById('footerBtnText').textContent = lang === 'es' ? 'Guardando…' : 'Saving…';
+
+        await generateAndUpload(data);
     }
 
-    function handleFooterBtn() {
-        if (currentStep === 1) {
-            const phone = document.getElementById('custPhone').value.trim();
-            const phoneError = document.getElementById('phoneError');
-            if (!phone) {
-                phoneError.style.display = 'block';
-                return;
-            }
-            phoneError.style.display = 'none';
-            goToStep(2);
-
-        } else {
-            let valid = true;
-
-            if (!signaturePad || signaturePad.isEmpty()) {
-                document.getElementById('sigError').style.display = 'block';
-                valid = false;
-            } else {
-                document.getElementById('sigError').style.display = 'none';
-            }
-
-            if (canvasSnap.style.display !== 'block') {
-                document.getElementById('photoError').style.display = 'block';
-                valid = false;
-            } else {
-                document.getElementById('photoError').style.display = 'none';
-            }
-
-            if (!valid) return;
-
-            const payload = {
-                firstName: document.getElementById('custName').value.trim(),
-                lastName: document.getElementById('custLastName').value.trim(),
-                phone: document.getElementById('custPhone').value.trim(),
-                email: document.getElementById('custEmail').value.trim(),
-                signature: signaturePad.toDataURL('image/png'),
-                photo: canvasSnap.toDataURL('image/jpeg', 0.85)
-            };
-
-            generateCheckinPDF(payload);
-        }
-    }
-
-    // ── PDF Generation ──
+    // ═══════════════════════════════════════
+    // PDF GENERATION
+    // ═══════════════════════════════════════
     function loadImageAsBase64(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
                 const c = document.createElement('canvas');
-                c.width = img.naturalWidth;
-                c.height = img.naturalHeight;
+                c.width = img.naturalWidth; c.height = img.naturalHeight;
                 c.getContext('2d').drawImage(img, 0, 0);
                 resolve(c.toDataURL('image/png'));
             };
@@ -462,264 +640,161 @@
         });
     }
 
-    async function generateCheckinPDF(data) {
+    async function generateAndUpload(data) {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-        const pageW = 210;
-        const pageH = 297;
-        const margin = 14;
-        const contentW = pageW - margin * 2;
+        const W = 210, H = 297, m = 14, cw = W - m * 2;
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         let y = 0;
 
-        // ─────────────────────────────────────
-        // HEADER BAND
-        // ─────────────────────────────────────
+        // Header band
         doc.setFillColor(39, 50, 56);
-        doc.rect(0, 0, pageW, 38, 'F');
-
-        // Try to embed logo
+        doc.rect(0, 0, W, 38, 'F');
         try {
-            const logoB64 = await loadImageAsBase64(
-                'https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png'
-            );
-            const logoTmpImg = new Image();
-            logoTmpImg.src = logoB64;
-            await new Promise(r => { logoTmpImg.onload = r; });
-            const logoMaxH = 28;
-            const logoW = (logoTmpImg.naturalWidth / logoTmpImg.naturalHeight) * logoMaxH;
-            doc.addImage(logoB64, 'PNG', margin, (38 - logoMaxH) / 2, logoW, logoMaxH);
+            const logo = await loadImageAsBase64('https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/PIfeshtFCl24bpx7Awil/media/6995e60663fc7cc12c281eb7.png');
+            const tmpImg = new Image(); tmpImg.src = logo;
+            await new Promise(r => { tmpImg.onload = r; });
+            const lh = 28, lw = (tmpImg.naturalWidth / tmpImg.naturalHeight) * lh;
+            doc.addImage(logo, 'PNG', m, (38 - lh) / 2, lw, lh);
         } catch (_) {
-            // CORS blocked – fall back to text
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(20);
-            doc.setFont('helvetica', 'bold');
-            doc.text('CASH N CARRY', margin, 22);
+            doc.setTextColor(255, 255, 255); doc.setFontSize(20); doc.setFont('helvetica', 'bold');
+            doc.text('CASH N CARRY', m, 22);
         }
-
-        // Tagline right side
-        doc.setTextColor(150, 210, 185);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'italic');
-        doc.text('"Pull your part!"', pageW - margin, 20, { align: 'right' });
-        doc.setTextColor(200, 220, 215);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text('cashncarryparts.com', pageW - margin, 27, { align: 'right' });
+        doc.setTextColor(150, 210, 185); doc.setFontSize(9); doc.setFont('helvetica', 'italic');
+        doc.text('"Pull your part!"', W - m, 20, { align: 'right' });
 
         y = 47;
 
-        // ─────────────────────────────────────
-        // DOCUMENT TITLE
-        // ─────────────────────────────────────
-        doc.setTextColor(39, 50, 56);
-        doc.setFontSize(15);
-        doc.setFont('helvetica', 'bold');
-        doc.text('YARD CHECK-IN RECORD', margin, y);
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(120, 120, 120);
-        doc.text(dateStr + '  ·  ' + timeStr, pageW - margin, y, { align: 'right' });
-
+        // Title
+        doc.setTextColor(39, 50, 56); doc.setFontSize(15); doc.setFont('helvetica', 'bold');
+        doc.text('YARD CHECK-IN RECORD', m, y);
+        doc.setFontSize(8); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
+        doc.text(dateStr + '  ·  ' + timeStr, W - m, y, { align: 'right' });
         y += 4;
-        doc.setDrawColor(39, 50, 56);
-        doc.setLineWidth(0.6);
-        doc.line(margin, y, pageW - margin, y);
-        y += 10;
+        doc.setDrawColor(39, 50, 56); doc.setLineWidth(0.6); doc.line(m, y, W - m, y);
+        y += 12;
 
-        // ─────────────────────────────────────
-        // SECTION HELPER
-        // ─────────────────────────────────────
-        function sectionHeader(title) {
-            doc.setFillColor(242, 245, 246);
-            doc.rect(margin, y, contentW, 8, 'F');
-            doc.setDrawColor(39, 50, 56);
-            doc.setLineWidth(0.3);
-            doc.rect(margin, y, 3, 8, 'F'); // accent bar
-            doc.setFillColor(39, 50, 56);
-            doc.rect(margin, y, 3, 8, 'F');
-            doc.setTextColor(39, 50, 56);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, margin + 6, y + 5.5);
-            y += 13;
+        function section(title) {
+            doc.setFillColor(242, 245, 246); doc.rect(m, y, cw, 8, 'F');
+            doc.setFillColor(39, 50, 56); doc.rect(m, y, 3, 8, 'F');
+            doc.setTextColor(39, 50, 56); doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+            doc.text(title, m + 6, y + 5.5); y += 13;
         }
 
-        // ─────────────────────────────────────
-        // CUSTOMER INFORMATION
-        // ─────────────────────────────────────
-        sectionHeader('CUSTOMER INFORMATION');
+        // Customer Info
+        section('CUSTOMER INFORMATION');
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(120, 120, 120);
+        doc.text('PHONE', m, y);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(39, 50, 56);
+        const fmtPhone = data.phone === 'OptOut' ? 'Opted Out' : formatPhone(data.phone);
+        doc.text(fmtPhone, m, y + 6);
+        doc.setFontSize(8); doc.setFont('helvetica', 'bold'); doc.setTextColor(120, 120, 120);
+        doc.text('CHECK-IN TIME', m + cw / 2 + 4, y);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(39, 50, 56);
+        doc.text(timeStr, m + cw / 2 + 4, y + 6);
+        y += 16;
+        doc.setDrawColor(220, 224, 226); doc.setLineWidth(0.25); doc.line(m, y, W - m, y); y += 10;
 
-        const col1 = margin;
-        const col2 = margin + contentW / 2 + 4;
-        const fields = [
-            [['Full Name', (data.firstName + ' ' + data.lastName).trim() || '—'], ['Phone', data.phone || '—']],
-            [['Email', data.email || '—'], ['Check-in Time', timeStr]],
-        ];
+        // Waiver
+        const waiverEn = 'I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous. In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents. I agree not to enter the premises if I am under the influence of alcohol or drugs. This release is binding upon my heirs, agents, next of kin, executors, and administrators. By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily. I further agree to abide by all rules and regulations of Cash N Carry during my visit. All minors under the age of eighteen (18) must be accompanied by an adult.';
+        const waiverEs = 'Reconozco que un depósito de salvamento de automóviles, como Cash N Carry, presenta ciertos riesgos para mí y mis agentes, y que estar en las instalaciones y/o retirar piezas de automóviles es inherentemente peligroso. En consideración de que se me permita entrar y retirar piezas a precios relativamente bajos, por la presente libero, indemnifico y eximo de toda responsabilidad a Cash N Carry, sus oficiales, agentes y cesionarios, de toda responsabilidad, reclamos, demandas y causas de acción que surjan de o estén relacionadas con cualquier pérdida, daño, lesión o muerte sufrida por mí o mis agentes. Acepto no entrar a las instalaciones si estoy bajo la influencia del alcohol o drogas. Esta liberación es vinculante para mis herederos, agentes, familiares cercanos, ejecutores y administradores. Al ejecutar esta liberación, acepto pagar la tarifa de entrada y confirmo que he leído y entiendo este acuerdo, tengo al menos dieciocho (18) años de edad, estoy en pleno uso de mis facultades mentales, y firmo voluntariamente. Además, acepto cumplir con todas las reglas y regulaciones de Cash N Carry durante mi visita. Todos los menores de dieciocho (18) años deben estar acompañados por un adulto.';
+        const waiverTitle = lang === 'es' ? 'EXENCIÓN Y RENUNCIA DE RESPONSABILIDAD' : 'RELEASE AND WAIVER OF LIABILITY';
+        section(waiverTitle);
+        const wt = lang === 'es' ? waiverEs : waiverEn;
+        doc.setFontSize(8.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 85, 90);
+        const wl = doc.splitTextToSize(wt, cw); doc.text(wl, m, y); y += wl.length * 4.2 + 10;
+        doc.setDrawColor(220, 224, 226); doc.line(m, y, W - m, y); y += 10;
 
-        fields.forEach(row => {
-            row.forEach(([label, value], ci) => {
-                const x = ci === 0 ? col1 : col2;
-                doc.setFontSize(8);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(120, 120, 120);
-                doc.text(label.toUpperCase(), x, y);
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(10);
-                doc.setTextColor(39, 50, 56);
-                doc.text(value, x, y + 5.5);
-            });
-            y += 14;
-        });
+        // Signature
+        section('CUSTOMER SIGNATURE');
+        const sh = 40;
+        doc.setDrawColor(210, 214, 218); doc.setFillColor(252, 252, 252); doc.rect(m, y, cw, sh, 'FD');
+        doc.addImage(data.signature, 'PNG', m + 2, y + 2, cw - 4, sh - 4); y += sh + 6;
+        doc.setDrawColor(39, 50, 56); doc.setLineWidth(0.4);
+        doc.line(m, y, m + 90, y); doc.line(W - m - 60, y, W - m, y);
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 120, 120);
+        doc.text('Signature of Customer', m, y + 4);
+        doc.text('Date: ' + now.toLocaleDateString('en-US'), W - m, y + 4, { align: 'right' });
+        y += 14; doc.setDrawColor(220, 224, 226); doc.line(m, y, W - m, y); y += 10;
 
-        y += 2;
-        doc.setDrawColor(220, 224, 226);
-        doc.setLineWidth(0.25);
-        doc.line(margin, y, pageW - margin, y);
-        y += 10;
-
-        // ─────────────────────────────────────
-        // WAIVER
-        // ─────────────────────────────────────
-        sectionHeader('RELEASE AND WAIVER OF LIABILITY');
-
-        const waiverText = 'I acknowledge that an automobile salvage yard, such as Cash N Carry, presents certain risks to me and my agents, and that being on the premises and/or removing automobile parts is inherently dangerous. In consideration of being allowed to enter and remove parts at relatively low prices, I hereby release, indemnify, and hold harmless Cash N Carry, its officers, agents, and assigns, from any and all liability, claims, demands, and causes of action arising out of or related to any loss, damage, injury, or death sustained by me or my agents. I agree not to enter the premises if I am under the influence of alcohol or drugs. This release is binding upon my heirs, agents, next of kin, executors, and administrators. If any provision is deemed invalid by a court of competent jurisdiction, that portion shall be deleted without affecting the remainder, which shall remain in full force and effect. By executing this release, I agree to pay the entry fee and confirm that I have read and understand this agreement, am at least eighteen (18) years of age, of sound mind, and am signing voluntarily without any undue influence or pressure by Cash N Carry or its agents. I further agree to abide by all rules and regulations of Cash N Carry during my visit. All minors under the age of eighteen (18) must be accompanied by an adult.';
-
-        doc.setFontSize(8.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(80, 85, 90);
-        const waiverLines = doc.splitTextToSize(waiverText, contentW);
-        doc.text(waiverLines, margin, y);
-        y += waiverLines.length * 4.2 + 10;
-
-        doc.setDrawColor(220, 224, 226);
-        doc.setLineWidth(0.25);
-        doc.line(margin, y, pageW - margin, y);
-        y += 10;
-
-        // ─────────────────────────────────────
-        // SIGNATURE
-        // ─────────────────────────────────────
-        sectionHeader('CUSTOMER SIGNATURE');
-
-        const sigBoxH = 40;
-        doc.setDrawColor(210, 214, 218);
-        doc.setLineWidth(0.25);
-        doc.setFillColor(252, 252, 252);
-        doc.rect(margin, y, contentW, sigBoxH, 'FD');
-        doc.addImage(data.signature, 'PNG', margin + 2, y + 2, contentW - 4, sigBoxH - 4);
-        y += sigBoxH + 6;
-
-        // Sign-off line
-        doc.setDrawColor(39, 50, 56);
-        doc.setLineWidth(0.4);
-        doc.line(margin, y, margin + 90, y);
-        doc.line(pageW - margin - 60, y, pageW - margin, y);
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(120, 120, 120);
-        doc.text('Signature of Customer', margin, y + 4);
-        doc.text('Date: ' + now.toLocaleDateString('en-US'), pageW - margin, y + 4, { align: 'right' });
-        y += 14;
-
-        doc.setDrawColor(220, 224, 226);
-        doc.setLineWidth(0.25);
-        doc.line(margin, y, pageW - margin, y);
-        y += 10;
-
-        // ─────────────────────────────────────
-        // PHOTO (new page if tight)
-        // ─────────────────────────────────────
-        const aspect = canvasSnap.width / canvasSnap.height;
-        const photoW = 80;
-        const photoH = photoW / aspect;
-
-        if (y + photoH + 40 > pageH - 20) {
-            doc.addPage();
-            y = 20;
+        // Photo
+        if (data.photo) {
+            if (y + 80 > H - 20) { doc.addPage(); y = 20; }
+            section('VERIFICATION PHOTO');
+            const tmpC = document.getElementById('snapshot-hidden');
+            const ar = tmpC.width / tmpC.height; const pw = 70, ph = pw / ar;
+            const px = (W - pw) / 2;
+            doc.setDrawColor(210, 214, 218); doc.rect(px, y, pw, ph, 'D');
+            doc.addImage(data.photo, 'JPEG', px, y, pw, ph); y += ph + 6;
+            doc.setFontSize(7.5); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
+            doc.text('Photo captured at check-in — ' + timeStr, W / 2, y, { align: 'center' });
         }
 
-        sectionHeader('VERIFICATION PHOTO');
-
-        const photoX = (pageW - photoW) / 2;
-        doc.setDrawColor(210, 214, 218);
-        doc.setLineWidth(0.25);
-        doc.rect(photoX, y, photoW, photoH, 'D');
-        doc.addImage(data.photo, 'JPEG', photoX, y, photoW, photoH);
-        y += photoH + 6;
-
-        doc.setFontSize(7.5);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(150, 150, 150);
-        doc.text('Photo captured at time of check-in — ' + timeStr, pageW / 2, y, { align: 'center' });
-        y += 10;
-
-        // ─────────────────────────────────────
-        // FOOTER (every page)
-        // ─────────────────────────────────────
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let p = 1; p <= totalPages; p++) {
-            doc.setPage(p);
-            const fy = pageH - 10;
-            doc.setDrawColor(39, 50, 56);
-            doc.setLineWidth(0.3);
-            doc.line(margin, fy - 4, pageW - margin, fy - 4);
-            doc.setFontSize(7.5);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(150, 150, 150);
-            doc.text('Cash N Carry Auto Parts  |  cashncarryparts.com', margin, fy);
-            doc.text('Page ' + p + ' of ' + totalPages, pageW - margin, fy, { align: 'right' });
+        // Page footers
+        const tp = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= tp; p++) {
+            doc.setPage(p); const fy = H - 10;
+            doc.setDrawColor(39, 50, 56); doc.setLineWidth(0.3); doc.line(m, fy - 4, W - m, fy - 4);
+            doc.setFontSize(7.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(150, 150, 150);
+            doc.text('Cash N Carry Auto Parts  |  cashncarryparts.com', m, fy);
+            doc.text('Page ' + p + ' of ' + tp, W - m, fy, { align: 'right' });
         }
 
-        // ─────────────────────────────────────
-        // UPLOAD TO SERVER via save.php
-        // ─────────────────────────────────────
-        const safeName  = (data.firstName + '_' + data.lastName).replace(/[^a-zA-Z0-9_]/g, '') || 'Guest';
-        const dateTag   = now.toISOString().slice(0, 10);                           // 2026-04-01
-        const timeTag   = now.toTimeString().slice(0, 8).replace(/:/g, '-');        // 14-32-05
-        const filename  = safeName + '_' + dateTag + '_' + timeTag;                 // John_Smith_2026-04-01_14-32-05
-
-        // Get PDF as base64 data-URI string
+        // Upload
+        const phoneTag = data.phone === 'OptOut' ? 'OptOut' : data.phone;
+        const dateTag = now.toISOString().slice(0, 10);
+        const timeTag = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+        const filename = phoneTag + '_' + dateTag + '_' + timeTag;
         const pdfBase64 = doc.output('datauristring');
 
-        // Show saving state on footer button
-        const footerBtn = document.getElementById('footerBtnText');
-        footerBtn.textContent = 'Saving…';
-
         try {
-            const response = await fetch('save.php', {
+            const resp = await fetch('save.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pdf: pdfBase64, filename: filename })
             });
-            const result = await response.json();
-
+            const result = await resp.json();
             if (result.success) {
-                showBanner('success', '✓ Check-in complete! Record saved successfully.');
+                showBanner('success', lang === 'es' ? '✓ ¡Registro exitoso! Bienvenido a Cash N Carry.' : '✓ Check-in complete! Welcome to Cash N Carry.');
             } else {
-                console.error('Save error:', result.error);
-                showBanner('warn', '⚠ Check-in recorded but file could not be saved. Notify staff.');
+                showBanner('warn', lang === 'es' ? '⚠ No se pudo guardar. Notifique al personal.' : '⚠ Could not save. Please notify staff.');
             }
         } catch (err) {
-            console.error('Network error:', err);
-            showBanner('warn', '⚠ Could not reach server. Please notify staff.');
+            showBanner('warn', lang === 'es' ? '⚠ Error de conexión. Notifique al personal.' : '⚠ Connection error. Please notify staff.');
         }
 
         setTimeout(() => location.reload(), 3500);
     }
 
-    // ─────────────────────────────────────
-    // BANNER HELPER
-    // ─────────────────────────────────────
-    function showBanner(type, message) {
-        const banner = document.getElementById('statusBanner');
-        banner.textContent = message;
-        banner.className = 'status-banner ' + (type === 'success' ? 'banner-success' : 'banner-warn');
-        banner.style.display = 'block';
+    function showBanner(type, msg) {
+        const b = document.getElementById('statusBanner');
+        b.textContent = msg;
+        b.className = 'status-banner ' + (type === 'success' ? 'banner-success' : 'banner-warn');
+        b.style.display = 'block';
+    }
+
+    function capturePhotoWhenReady() {
+        return new Promise((resolve) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds
+            const tryCapture = () => {
+                attempts++;
+                if (videoEl.srcObject && videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+                    const ctx = snapCanvas.getContext('2d');
+                    snapCanvas.width = videoEl.videoWidth;
+                    snapCanvas.height = videoEl.videoHeight;
+                    ctx.drawImage(videoEl, 0, 0);
+                    resolve(snapCanvas.toDataURL('image/jpeg', 0.8));
+                } else if (attempts < maxAttempts) {
+                    setTimeout(tryCapture, 100);
+                } else {
+                    resolve(null); // give up after 5s
+                }
+            };
+            tryCapture();
+        });
     }
 </script>
 

@@ -1,13 +1,14 @@
 <?php
 /**
  * Cash N Carry – Check-in PDF Receiver
- * Uploads PDF directly to Google Drive via Service Account (no library needed)
- *
- * Requires: service-account.json  one level above public_html
- *   /home/appodinc/domains/checkin.cashncarryparts.com/service-account.json
+ * Forwards base64 PDF to Google Apps Script Web App, which saves it to Drive
+ * under the deploying user's Google account (no service account quota needed).
  */
 
-// ── CORS (allow the same domain only) ──────────────────────────────────────
+// ── Apps Script Web App URL ────────────────────────────────────────────────
+define('APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbwbvqxH0BltFG6RUxaqQJ1c_zSLeqQ4PjoFjOTnoHtgXbOZFwD_TNRPcQkN5TESFCc-/exec');
+
+// ── CORS ───────────────────────────────────────────────────────────────────
 $allowed_origin = 'https://checkin.cashncarryparts.com';
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if ($origin === $allowed_origin) {
@@ -16,7 +17,6 @@ if ($origin === $allowed_origin) {
 header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 
-// Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header('Access-Control-Allow-Methods: POST');
     header('Access-Control-Allow-Headers: Content-Type');
@@ -24,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ── Only allow POST ────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
@@ -43,23 +42,14 @@ if (!$data || !isset($data['pdf'], $data['filename'])) {
 
 // ── Validate base64 PDF ────────────────────────────────────────────────────
 $base64 = $data['pdf'];
-
-// Strip data-URI prefix if present
 if (str_contains($base64, ',')) {
     $base64 = explode(',', $base64, 2)[1];
 }
 
 $pdfBytes = base64_decode($base64, strict: true);
-if ($pdfBytes === false) {
+if ($pdfBytes === false || !str_starts_with($pdfBytes, '%PDF-')) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Invalid base64 data']);
-    exit;
-}
-
-// Confirm it's a PDF by checking magic bytes (%PDF-)
-if (!str_starts_with($pdfBytes, '%PDF-')) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'File is not a valid PDF']);
+    echo json_encode(['success' => false, 'error' => 'Invalid PDF data']);
     exit;
 }
 
@@ -69,117 +59,37 @@ $safeName = preg_replace('/[^a-zA-Z0-9_\-]/', '_', pathinfo($rawName, PATHINFO_F
 $safeName = substr($safeName, 0, 120);
 $filename = $safeName . '.pdf';
 
-// ── Load service account key (outside public_html) ────────────────────────
-$keyPath = dirname(__DIR__) . '/service-account.json';
-if (!file_exists($keyPath)) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'service-account.json not found on server']);
+// ── Forward to Apps Script via cURL (handles Google's redirect chain) ───────
+$payload = json_encode(['pdf' => $base64, 'filename' => $filename]);
+
+$ch = curl_init(APPS_SCRIPT_URL);
+curl_setopt_array($ch, [
+    CURLOPT_POST           => true,
+    CURLOPT_POSTFIELDS     => $payload,
+    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_MAXREDIRS      => 5,
+    CURLOPT_TIMEOUT        => 30,
+    CURLOPT_SSL_VERIFYPEER => true,
+]);
+
+$response = curl_exec($ch);
+$curlErr  = curl_error($ch);
+curl_close($ch);
+
+if ($response === false) {
+    http_response_code(502);
+    echo json_encode(['success' => false, 'error' => 'cURL error: ' . $curlErr]);
     exit;
 }
 
-$serviceAccount = json_decode(file_get_contents($keyPath), true);
-if (!$serviceAccount || !isset($serviceAccount['client_email'], $serviceAccount['private_key'])) {
+$result = json_decode($response, true);
+
+if (isset($result['success']) && $result['success']) {
+    http_response_code(200);
+    echo json_encode($result);
+} else {
     http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Invalid service account key file']);
-    exit;
+    echo json_encode($result ?? ['success' => false, 'error' => 'Apps Script raw response: ' . substr($response, 0, 300)]);
 }
-
-// ── Google Drive folder ID ─────────────────────────────────────────────────
-define('DRIVE_FOLDER_ID', '1jQXO9JnPC9lBk0-ukRAghcGKTyr2gk96');
-
-// ── JWT helper ────────────────────────────────────────────────────────────
-function base64url_encode(string $data): string {
-    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-}
-
-// ── Get OAuth2 access token via Service Account JWT ───────────────────────
-function get_drive_access_token(array $sa): string|false {
-    $now    = time();
-    $header  = base64url_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-    $payload = base64url_encode(json_encode([
-        'iss'   => $sa['client_email'],
-        'scope' => 'https://www.googleapis.com/auth/drive.file',
-        'aud'   => 'https://oauth2.googleapis.com/token',
-        'iat'   => $now,
-        'exp'   => $now + 3600,
-    ]));
-
-    $signingInput = $header . '.' . $payload;
-    $privateKey   = openssl_pkey_get_private($sa['private_key']);
-    if (!$privateKey) return false;
-
-    openssl_sign($signingInput, $signature, $privateKey, 'SHA256');
-    $jwt = $signingInput . '.' . base64url_encode($signature);
-
-    $response = file_get_contents('https://oauth2.googleapis.com/token', false, stream_context_create([
-        'http' => [
-            'method'  => 'POST',
-            'header'  => 'Content-Type: application/x-www-form-urlencoded',
-            'content' => http_build_query([
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion'  => $jwt,
-            ]),
-            'timeout'       => 10,
-            'ignore_errors' => true,
-        ],
-    ]));
-
-    if ($response === false) return false;
-    $token = json_decode($response, true);
-    return $token['access_token'] ?? false;
-}
-
-// ── Upload PDF to Google Drive (multipart) ────────────────────────────────
-function upload_to_drive(string $pdfBytes, string $filename, string $folderId, string $accessToken): array {
-    $metadata = json_encode(['name' => $filename, 'parents' => [$folderId]]);
-    $boundary = '----DriveUpload' . bin2hex(random_bytes(8));
-
-    $body  = "--{$boundary}\r\n";
-    $body .= "Content-Type: application/json; charset=UTF-8\r\n\r\n";
-    $body .= $metadata . "\r\n";
-    $body .= "--{$boundary}\r\n";
-    $body .= "Content-Type: application/pdf\r\n\r\n";
-    $body .= $pdfBytes . "\r\n";
-    $body .= "--{$boundary}--";
-
-    $response = file_get_contents(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-        false,
-        stream_context_create([
-            'http' => [
-                'method'  => 'POST',
-                'header'  => implode("\r\n", [
-                    'Authorization: Bearer ' . $accessToken,
-                    'Content-Type: multipart/related; boundary=' . $boundary,
-                    'Content-Length: ' . strlen($body),
-                ]),
-                'content'       => $body,
-                'timeout'       => 30,
-                'ignore_errors' => true,
-            ],
-        ])
-    );
-
-    if ($response === false) {
-        return ['success' => false, 'error' => 'Drive upload network request failed'];
-    }
-
-    $result = json_decode($response, true);
-    if (isset($result['id'])) {
-        return ['success' => true, 'fileId' => $result['id'], 'filename' => $filename];
-    }
-
-    return ['success' => false, 'error' => $result['error']['message'] ?? 'Unknown Drive API error'];
-}
-
-// ── Execute ────────────────────────────────────────────────────────────────
-$accessToken = get_drive_access_token($serviceAccount);
-if (!$accessToken) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Could not authenticate with Google Drive']);
-    exit;
-}
-
-$result = upload_to_drive($pdfBytes, $filename, DRIVE_FOLDER_ID, $accessToken);
-http_response_code($result['success'] ? 200 : 500);
-echo json_encode($result);
