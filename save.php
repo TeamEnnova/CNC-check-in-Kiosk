@@ -6,7 +6,7 @@
  */
 
 // ── Apps Script Web App URL ────────────────────────────────────────────────
-define('APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbwbvqxH0BltFG6RUxaqQJ1c_zSLeqQ4PjoFjOTnoHtgXbOZFwD_TNRPcQkN5TESFCc-/exec');
+define('APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbw0ln62ghdq4qCRmy18DExhL5ydIhdAArwsCVUnUdEVLO9XyuAxNy2faQHskfB8Jn_4/exec');
 
 // ── CORS ───────────────────────────────────────────────────────────────────
 $allowed_origin = 'https://checkin.cashncarryparts.com';
@@ -60,7 +60,8 @@ $safeName = substr($safeName, 0, 120);
 $filename = $safeName . '.pdf';
 
 // ── Forward to Apps Script via cURL (handles Google's redirect chain) ───────
-$payload = json_encode(['pdf' => $base64, 'filename' => $filename]);
+$phone = isset($data['phone']) ? preg_replace('/[^0-9A-Za-z]/', '', substr($data['phone'], 0, 20)) : 'Unknown';
+$payload = json_encode(['pdf' => $base64, 'filename' => $filename, 'phone' => $phone]);
 
 $ch = curl_init(APPS_SCRIPT_URL);
 curl_setopt_array($ch, [

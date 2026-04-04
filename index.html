@@ -753,7 +753,7 @@
             const resp = await fetch('save.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pdf: pdfBase64, filename: filename })
+                body: JSON.stringify({ pdf: pdfBase64, filename: filename, phone: data.phone })
             });
             const result = await resp.json();
             if (result.success) {
